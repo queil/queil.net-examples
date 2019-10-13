@@ -6,5 +6,5 @@ open fsharp.Examples
 let main argv =
     
     Projection ()
-
+    Deserialization ()
     0

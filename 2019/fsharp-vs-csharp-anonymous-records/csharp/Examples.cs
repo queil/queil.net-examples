@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Text.Json;
 
 namespace csharp
 {
@@ -24,6 +25,27 @@ namespace csharp
                         select new { Name = p.FirstName };
 
             foreach (var n in names) Console.WriteLine(n);
+        }
+
+        ///
+        /// This would require a custom converter to insantiate an anonymous type 
+        /// A similar one that is in FSharp example
+        public static void Deserialization()
+        {
+            var input = @"
+                {
+                    ""success"": true,
+                    ""message"" : ""Processed!"",
+                    ""code"" : 0,
+                    ""id"": ""89e8f9a1-fedb-440e-a596-e4277283fbcf""
+                }";
+
+            T Deserialize<T>(T template) => JsonSerializer.Deserialize<T>(input);
+
+            var result = Deserialize(template: new { success = false, id = Guid.Empty });
+
+            if (result.success) Console.WriteLine(result.id);
+            else throw new Exception("Error");
         }
     }
 }
