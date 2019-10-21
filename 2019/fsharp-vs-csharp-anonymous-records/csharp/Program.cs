@@ -8,6 +8,7 @@ namespace csharp
         {
             Projection();
             Deserialization();
+            CopyAndUpdate();    
         }
     }
 }

@@ -43,3 +43,8 @@ module Examples =
         let result = JsonSerializer.Deserialize<{|success:bool; id:Guid|}>(input, opts)
         if result.success then printfn "%A" (result.id)
         else failwith "Error"
+
+    let CopyAndUpdate () =
+        let dob = DateTime(2000, 12, 12)
+        let data = {| FirstName = "Alice"; LastName = "Smith"; DateOfBirth = dob |}
+        printfn "%A" {| data with LastName = "Jones" |}

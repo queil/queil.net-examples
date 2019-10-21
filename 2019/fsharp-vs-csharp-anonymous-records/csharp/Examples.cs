@@ -47,5 +47,12 @@ namespace csharp
             if (result.success) Console.WriteLine(result.id);
             else throw new Exception("Error");
         }
+
+        public static void CopyAndUpdate()
+        {
+            var dob = new DateTime(2000, 12, 12);
+            var data = new { FirstName = "Alice", LastName = "Smith", DateOfBirth = dob };
+            Console.WriteLine(new { data.FirstName, LastName = "Jones", data.DateOfBirth });
+        }
     }
 }

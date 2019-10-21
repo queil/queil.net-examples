@@ -7,4 +7,5 @@ let main argv =
     
     Projection ()
     Deserialization ()
+    CopyAndUpdate ()
     0
