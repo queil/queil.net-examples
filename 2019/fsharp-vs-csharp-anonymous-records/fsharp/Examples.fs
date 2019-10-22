@@ -48,3 +48,12 @@ module Examples =
         let dob = DateTime(2000, 12, 12)
         let data = {| FirstName = "Alice"; LastName = "Smith"; DateOfBirth = dob |}
         printfn "%A" {| data with LastName = "Jones" |}
+    
+    let StructuralEquality () =
+        
+        let dob = DateTime(2000, 12, 12)
+        let r1 = {| FirstName = "Alice"; LastName = "Smith"; DateOfBirth = dob |}
+        let r2 = {| FirstName = "Alice"; LastName = "Smith"; DateOfBirth = dob |}
+        printfn "Referential equality: obj.ReferenceEquals(%s, %s) : %b" "r1" "r2" (obj.ReferenceEquals(r1, r2))
+        printfn "Structural equality: %s = %s : %b" "r1" "r2" (r1 = r2)
+       

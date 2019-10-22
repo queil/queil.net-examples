@@ -54,5 +54,14 @@ namespace csharp
             var data = new { FirstName = "Alice", LastName = "Smith", DateOfBirth = dob };
             Console.WriteLine(new { data.FirstName, LastName = "Jones", data.DateOfBirth });
         }
+
+        public static void StructuralEquality()
+        {
+            var dob = new DateTime(2000, 12, 12);
+            var r1 = new { FirstName = "Alice", LastName = "Smith", DateOfBirth = dob };
+            var r2 = new { FirstName = "Alice", LastName = "Smith", DateOfBirth = dob };
+            Console.WriteLine($"Referential equality: {nameof(r1)} == {nameof(r2)} : {r1 == r2}");
+            Console.WriteLine($"Structural equality: {nameof(r1)}.Equals({nameof(r2)}) : {r1.Equals(r2)}");
+        }
     }
 }

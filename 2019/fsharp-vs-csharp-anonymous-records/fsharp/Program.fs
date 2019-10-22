@@ -8,4 +8,5 @@ let main argv =
     Projection ()
     Deserialization ()
     CopyAndUpdate ()
+    StructuralEquality ()
     0
