@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+option csharp_namespace = "Example";
+
+package example;
+
+message MySecret {
+  int32 Number = 1;
+}
+
+message Response {
+  oneof maybe {
+    MySecret Some = 1;
+  }
+}
