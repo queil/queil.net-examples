@@ -5,11 +5,11 @@ option csharp_namespace = "Example";
 package example;
 
 message MySecret {
-  int32 Number = 1;
+  int32 number = 1;
 }
 
 message Response {
   oneof maybe {
-    MySecret Some = 1;
+    MySecret some = 1;
   }
 }
