@@ -14,8 +14,8 @@ namespace Example
         {
             static Response GetBy(int key) 
              => Store.ContainsKey(key) ?
-                   Maybe<Response>.With(x => x.Some = new MySecret{Number = Store[key]})
-                 : Maybe<Response>.None;
+                   new Response{ Some = new MySecret{Number = Store[key]}}
+                 : new Response();
 
             static void Handle(int key, Response response) 
             {
@@ -32,16 +32,4 @@ namespace Example
             Test(100000000);
         }
     }
-
-    public static class Maybe<T> 
-      where T : Google.Protobuf.IMessage, new()
-    {
-        public static T None { get; } = new T();
-        public static T With(Action<T> set) { 
-          var t = new T();
-          set(t);
-          return t;
-        }
-    }
-
 }
