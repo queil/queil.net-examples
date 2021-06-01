@@ -113,7 +113,7 @@ module Parser =
           return result :?> ResolveDependenciesResult
         }
 
-      let getScripts (assembly:Assembly) =
+      let extract (assembly:Assembly) =
       
         let fqNameChunks = scripts.memberFqName.Split(".") |> Seq.rev |> Seq.toList
         let (memberName, fqTypeName) =
@@ -145,5 +145,5 @@ module Parser =
         let! parsed = parse ()
         let! result = resolveNugets parsed
         let! assembly = compileScripts parsed result
-        return getScripts assembly
+        return extract assembly
       }
