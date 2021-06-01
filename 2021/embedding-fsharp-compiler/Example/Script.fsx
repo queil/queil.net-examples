@@ -5,8 +5,8 @@ type MyModule = {
 }
 
 module MyModule =
-  let myProperty2 (x:string)  = async {
+  let original (x:string)  = async {
     printfn "Invoked by: %s" x
   }
   
-  let myProperty = myProperty2
+  let myFunc = original

@@ -9,10 +9,10 @@ let main argv =
     let funcToRun =
       {
         path = argv.[0]
-        memberFqName = "This.Is.A.Namespace.MyModuleModule.myProperty"
+        memberFqName = "This.Is.A.Namespace.MyModuleModule.myFunc"
       } |> Parser.readScripts<string -> Async<unit>> true |> Async.RunSynchronously
 
-    funcToRun "I am host!" |> Async.RunSynchronously
+    funcToRun "The host!" |> Async.RunSynchronously
     0
   with
   | Errors.ScriptCompileError(errors) ->
