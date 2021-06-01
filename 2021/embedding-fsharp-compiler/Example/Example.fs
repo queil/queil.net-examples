@@ -136,18 +136,6 @@ module Parser =
           | [] -> raise (Errors.ExpectedMemberParentTypeNotFound (scripts.path, scripts.memberFqName))
           | _ -> raise (Errors.MultipleMemberParentTypeCandidatesFound (scripts.path, scripts.memberFqName))
 
-        // let scriptsModule =
-        //   match modul.GetType(scripts.memberFqName) with
-        //   | null -> raise (Errors.ScriptModuleNotFound (scripts.path, scripts.memberFqName))
-        //   | m -> match m.GetNestedType(scripts.memberFqName) with
-        //          | null -> m
-        //          | n -> n
-
-        // let scriptsProperty =
-        //   match scriptsModule.GetProperty(scripts.memberFqName, BindingFlags.Static ||| BindingFlags.Public) with
-        //   | null -> raise (Errors.ScriptsPropertyNotFound (scripts.path, scripts.memberFqName, scripts.memberFqName))
-        //   | f -> f
-
         try
           match typ.GetProperty(memberName, BindingFlags.Static ||| BindingFlags.Public) with
           | null -> 

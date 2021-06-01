@@ -10,9 +10,9 @@ let main argv =
       {
         path = argv.[0]
         memberFqName = "This.Is.A.Namespace.MyModuleModule.myProperty"
-      } |> Parser.readScripts<(string -> Async<unit>) list> true |> Async.RunSynchronously
+      } |> Parser.readScripts<string -> Async<unit>> true |> Async.RunSynchronously
 
-    (funcToRun |> Seq.head) "I am host!" |> Async.RunSynchronously
+    funcToRun "I am host!" |> Async.RunSynchronously
     0
   with
   | Errors.ScriptsPropertyNotFound(path, propertyName, foundProperties) ->
