@@ -62,8 +62,8 @@ module Parser =
 
           let! errors, _, maybeAssembly =
             checker.CompileToDynamicAssembly (compilerArgs, None)
-            // Maybe that can work not sure --
-            //checker.CompileToDynamicAssembly([fileAst], scripts.moduleName, "mntnr"::(nugetResult.Resolutions |> Seq.toList), None, debug=true)
+            // Not sure how to set targetprofile
+            //checker.CompileToDynamicAssembly([fileAst], "Script", nugetResult.Resolutions |> Seq.toList, None, debug=true)
 
           return
             match maybeAssembly with

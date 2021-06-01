@@ -15,6 +15,10 @@ let main argv =
     funcToRun "I am host!" |> Async.RunSynchronously
     0
   with
+  | Errors.ScriptCompileError(errors) ->
+    printfn "%s" "Script compilation failed:"
+    errors |> Seq.iter (printfn "%s")
+    -1
   | Errors.ScriptsPropertyNotFound(path, propertyName, foundProperties) ->
     printfn "%s in %s not found" propertyName path
     printfn "Found properties: "
