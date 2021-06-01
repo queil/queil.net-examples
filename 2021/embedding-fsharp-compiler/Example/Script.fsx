@@ -1,10 +1,10 @@
 namespace This.Is.A.Namespace
 
-type MyModule = {
+type HelloHost = {
   test: string
 }
 
-module MyModule =
+module HelloHost =
   let original (x:string)  = async {
     printfn "Invoked by: %s" x
   }
