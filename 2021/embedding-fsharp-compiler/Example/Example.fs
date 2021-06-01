@@ -49,7 +49,7 @@ module Parser =
           nugetResult.Resolutions |> Seq.iter (fun r -> Assembly.LoadFrom r |> ignore)
 
           let compilerArgs = [|
-            "-a"; scripts.path;
+            "-a"; scripts.path
             "--targetprofile:netcore"
             "--target:module"
             yield! libPaths
@@ -114,11 +114,6 @@ module Parser =
         }
 
       let getScripts (assembly:Assembly) =
-        let maybeModule = assembly.GetModules false |> Seq.tryHead
-        let modul = match maybeModule with
-                    | Some m -> m
-                    | None ->
-                      failwith "Scripts should have one module"
       
         let fqNameChunks = scripts.memberFqName.Split(".") |> Seq.rev |> Seq.toList
         let (memberName, fqTypeName) =
@@ -126,9 +121,9 @@ module Parser =
           | h::t -> (h, t |> Seq.rev |> String.concat ("."))
           | [] -> failwith "Empty name"
 
-        let candidates = modul.GetTypes() |> Seq.where (fun t -> t.FullName = fqTypeName) |> Seq.toList
+        let candidates = assembly.GetTypes() |> Seq.where (fun t -> t.FullName = fqTypeName) |> Seq.toList
         
-        if verbose then modul.GetTypes() |> Seq.iter (fun t ->  printfn "%s" t.FullName)
+        if verbose then assembly.GetTypes() |> Seq.iter (fun t ->  printfn "%s" t.FullName)
 
         let typ =
           match candidates with
