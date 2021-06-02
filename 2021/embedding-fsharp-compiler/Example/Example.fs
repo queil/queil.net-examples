@@ -9,44 +9,49 @@ open FSharp.Compiler.Text
 
 module Parser =
   
+  let bindAsync (ra:Async<Result<'a,'b>>) (b:'a -> Async<Result<'c, 'b>>) =
+    async {
+      match! ra with
+      | Ok a -> return! (b a)
+      | Error x -> return (Error x)
+    }
+  
+  let (>>=) = bindAsync
+
   module Types =
     type ScriptsFile = {
       path: string
       memberFqName: string
     }
 
-    [<RequireQualifiedAccess>]
-    module Errors = 
-      exception NuGetRestoreFailed of message: string
-      exception ScriptParseError of errors: string seq
-      exception ScriptCompileError of errors: string seq
-      exception ScriptModuleNotFound of path: string * moduleName: string
-      exception ScriptsPropertyHasInvalidType of path: string * propertyName: string
-      exception ScriptsPropertyNotFound of path: string * propertyName: string * foundProperties: string list
-      exception ExpectedMemberParentTypeNotFound of path: string * memberFqName: string
-      exception MultipleMemberParentTypeCandidatesFound of path: string * memberFqName: string
+    type Error = 
+    | NuGetRestoreFailed of message: string
+    | ScriptParseError of errors: string seq
+    | ScriptCompileError of errors: string seq
+    | ScriptModuleNotFound of path: string * moduleName: string
+    | ScriptsPropertyHasInvalidType of path: string * propertyName: string
+    | ScriptsPropertyNotFound of path: string * propertyName: string * foundProperties: string list
+    | ExpectedMemberParentTypeNotFound of path: string * memberFqName: string
+    | MultipleMemberParentTypeCandidatesFound of path: string * memberFqName: string
 
   [<RequireQualifiedAccess>]
   module Parser =
     open Types
 
-    let readScripts<'a> (verbose:bool) (scripts:ScriptsFile): Async<'a> =
+    let readScripts<'a> (verbose:bool) (scripts:ScriptsFile): Async<Result<'a,Error>> =
       let checker = FSharpChecker.Create()
-      let compileScripts (fileAst:ParsedInput) (nugetResult:ResolveDependenciesResult) =
+      let compileScripts (nugetResolutions:string seq) =
         async {
 
-          if not nugetResult.Success then
-            raise (Errors.NuGetRestoreFailed(nugetResult.StdOut |> String.concat "\n"))
-
-          let refs = nugetResult.Resolutions |> Seq.map (fun r ->
+          let refs = nugetResolutions |> Seq.map (fun r ->
             let refName = Path.GetFileNameWithoutExtension(FileInfo(r).Name)
             $"--reference:{refName}")
 
-          let libPaths = nugetResult.Resolutions |> Seq.map (fun r ->
+          let libPaths = nugetResolutions |> Seq.map (fun r ->
             let libPath = FileInfo(r).DirectoryName
             $"--lib:{libPath}")
 
-          nugetResult.Resolutions |> Seq.iter (fun r -> Assembly.LoadFrom r |> ignore)
+          nugetResolutions |> Seq.iter (fun r -> Assembly.LoadFrom r |> ignore)
 
           let compilerArgs = [|
             "-a"; scripts.path
@@ -62,29 +67,28 @@ module Parser =
 
           let! errors, _, maybeAssembly =
             checker.CompileToDynamicAssembly (compilerArgs, None)
-            // Not sure how to set targetprofile
-            //checker.CompileToDynamicAssembly([fileAst], "Script", nugetResult.Resolutions |> Seq.toList, None, debug=true)
 
           return
             match maybeAssembly with
-            | Some x -> x
-            | None ->
-              raise (Errors.ScriptCompileError (errors |> Seq.map (fun d -> d.ToString())))
+            | Some x -> Ok x
+            | None -> Error (ScriptCompileError (errors |> Seq.map (fun d -> d.ToString())))
         }
 
-      let parse () : Async<ParsedInput> =
+      let parse () : Async<Result<ParsedInput,Error>> =
         async {
           let parsingOptions = { FSharpParsingOptions.Default with SourceFiles = [| scripts.path |] }
           let source = File.ReadAllText scripts.path |> SourceText.ofString
           let! parsed = checker.ParseFile(scripts.path, source, parsingOptions)
-
-          if parsed.ParseHadErrors then
-            raise (Errors.ScriptParseError (parsed.Errors |> Seq.map(fun d -> d.ToString())))
-          if verbose then printfn "%A" parsed.ParseTree.Value
-          return (parsed.ParseTree.Value)
+          
+          return
+            match parsed with
+            | x when x.ParseHadErrors -> Error(ScriptParseError (parsed.Errors |> Seq.map(fun d -> d.ToString())))
+            | x ->
+              if verbose then printfn "%A" parsed.ParseTree.Value
+              Ok x.ParseTree.Value
         }
 
-      let resolveNugets (parsed:ParsedInput) : Async<ResolveDependenciesResult> =
+      let resolveNugets (parsed:ParsedInput) : Async<Result<string seq, Error>> =
         async {
 
           let fileAst =
@@ -110,7 +114,11 @@ module Parser =
           let mgr = FSharpDependencyManager(None)
 
           let result = mgr.ResolveDependencies(FileInfo(scripts.path).Extension, nugets, "netstandard2.0", "linux-x64", 36000)
-          return result :?> ResolveDependenciesResult
+          let nugetResult = result :?> ResolveDependenciesResult
+          return 
+            match nugetResult with
+            | x when x.Success -> Ok x.Resolutions
+            | _ -> Error (NuGetRestoreFailed(nugetResult.StdOut |> String.concat "\n"))
         }
 
       let extract (assembly:Assembly) =
@@ -127,23 +135,26 @@ module Parser =
 
         let typ =
           match candidates with
-          | [s] -> s
-          | [] -> raise (Errors.ExpectedMemberParentTypeNotFound (scripts.path, scripts.memberFqName))
-          | _ -> raise (Errors.MultipleMemberParentTypeCandidatesFound (scripts.path, scripts.memberFqName))
+          | [s] -> Ok s
+          | [] -> Error (ExpectedMemberParentTypeNotFound (scripts.path, scripts.memberFqName))
+          | _ -> Error (MultipleMemberParentTypeCandidatesFound (scripts.path, scripts.memberFqName))
 
         try
-          match typ.GetProperty(memberName, BindingFlags.Static ||| BindingFlags.Public) with
-          | null -> 
-            raise (Errors.ScriptsPropertyNotFound (
-                    scripts.path, scripts.memberFqName,
-                    typ.GetProperties() |> Seq.map (fun p -> p.Name) |> Seq.toList))
-          | x -> x.GetValue(null) :?> 'a
+          typ |> Result.bind (fun t ->
+            match t.GetProperty(memberName, BindingFlags.Static ||| BindingFlags.Public) with
+            | null -> 
+              Error (ScriptsPropertyNotFound (
+                      scripts.path, scripts.memberFqName,
+                      t.GetProperties() |> Seq.map (fun p -> p.Name) |> Seq.toList))
+            | x -> Ok (x.GetValue(null) :?> 'a)
+          )
         with
-        | :? System.InvalidCastException -> raise (Errors.ScriptsPropertyHasInvalidType (scripts.path, scripts.memberFqName))
-
+        | :? System.InvalidCastException -> Error (ScriptsPropertyHasInvalidType (scripts.path, scripts.memberFqName))
+      
       async {
-        let! parsed = parse ()
-        let! result = resolveNugets parsed
-        let! assembly = compileScripts parsed result
-        return extract assembly
+        return! 
+          parse () 
+          >>= resolveNugets
+          >>= compileScripts
+          >>= (extract >> async.Return)
       }
