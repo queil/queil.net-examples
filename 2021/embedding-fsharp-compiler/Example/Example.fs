@@ -103,7 +103,7 @@ module Parser =
             moduleDeclarations
               |> Seq.choose (
                   function
-                  | SynModuleDecl.HashDirective(ParsedHashDirective("r", args, range), _) as x -> Some (args)
+                  | SynModuleDecl.HashDirective(ParsedHashDirective("r", args, _), _) -> Some (args)
                   | _ -> None)
               |> Seq.collect (id)
               |> Seq.map (fun d ->
@@ -121,35 +121,30 @@ module Parser =
             | _ -> Error (NuGetRestoreFailed(nugetResult.StdOut |> String.concat "\n"))
         }
 
-      let extract (assembly:Assembly) =
+      let extract (assembly:Assembly): Result<'a,Error> =
       
-        let fqNameChunks = scripts.memberFqName.Split(".") |> Seq.rev |> Seq.toList
-        let (memberName, fqTypeName) =
-          match fqNameChunks with
-          | h::t -> (h, t |> Seq.rev |> String.concat ("."))
-          | [] -> failwith "Empty name"
+        let name = scripts.memberFqName
+        let (fqTypeName, memberName) =
+          let splitIndex = name.LastIndexOf(".")
+          name.[0..splitIndex - 1], name.[splitIndex + 1..]
 
-        let candidates = assembly.GetTypes() |> Seq.where (fun t -> t.FullName = fqTypeName) |> Seq.toList
-        
+        let candidates = assembly.GetTypes() |> Seq.where (fun t -> t.FullName = fqTypeName) |> Seq.toList       
         if verbose then assembly.GetTypes() |> Seq.iter (fun t ->  printfn "%s" t.FullName)
 
-        let typ =
-          match candidates with
-          | [s] -> Ok s
-          | [] -> Error (ExpectedMemberParentTypeNotFound (scripts.path, scripts.memberFqName))
-          | _ -> Error (MultipleMemberParentTypeCandidatesFound (scripts.path, scripts.memberFqName))
+        match candidates with
+        | [t] ->
+          match t.GetProperty(memberName, BindingFlags.Static ||| BindingFlags.Public) with
+          | null -> Error (ScriptsPropertyNotFound (
+                            scripts.path, scripts.memberFqName,
+                            t.GetProperties() |> Seq.map (fun p -> p.Name) |> Seq.toList))
+          | p ->
+            try
+              Ok (p.GetValue(null) :?> 'a)
+            with
+            | :? System.InvalidCastException -> Error (ScriptsPropertyHasInvalidType (scripts.path, scripts.memberFqName))
 
-        try
-          typ |> Result.bind (fun t ->
-            match t.GetProperty(memberName, BindingFlags.Static ||| BindingFlags.Public) with
-            | null -> 
-              Error (ScriptsPropertyNotFound (
-                      scripts.path, scripts.memberFqName,
-                      t.GetProperties() |> Seq.map (fun p -> p.Name) |> Seq.toList))
-            | x -> Ok (x.GetValue(null) :?> 'a)
-          )
-        with
-        | :? System.InvalidCastException -> Error (ScriptsPropertyHasInvalidType (scripts.path, scripts.memberFqName))
+        | [] -> Error (ExpectedMemberParentTypeNotFound (scripts.path, scripts.memberFqName))
+        | _ -> Error (MultipleMemberParentTypeCandidatesFound (scripts.path, scripts.memberFqName))
       
       async {
         return! 
