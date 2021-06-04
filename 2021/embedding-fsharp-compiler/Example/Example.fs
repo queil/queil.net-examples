@@ -113,7 +113,10 @@ module Parser =
 
           let mgr = FSharpDependencyManager(None)
 
-          let result = mgr.ResolveDependencies(FileInfo(scripts.path).Extension, nugets, "netstandard2.0", "linux-x64", 36000)
+          let tfm = "netstandard2.0"
+          let rid = "linux-x64"
+          let extension = FileInfo(scripts.path).Extension
+          let result = mgr.ResolveDependencies(extension, nugets, tfm, rid, 36000)
           let nugetResult = result :?> ResolveDependenciesResult
           return 
             match nugetResult with
