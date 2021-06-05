@@ -1,15 +1,10 @@
 namespace Example
 open FSharp.Compiler.SourceCodeServices
-open FSharp.DependencyManager.Nuget
-open FSharp.Compiler.SyntaxTree
 open System.IO
 open System.Reflection
 open FSharp.Compiler.Text
-open System.Text.RegularExpressions
-open FSharp.Compiler.SourceCodeServices
 
-
-module Parser =
+module CompilerHost =
   
   let bindAsync (ra:Async<Result<'a,'b>>) (b:'a -> Async<Result<'c, 'b>>) =
     async {
@@ -19,13 +14,6 @@ module Parser =
     }
   
   let (>>=) = bindAsync
-
-  let (|ParseRegex|_|) regex str =
-    let m = Regex(regex).Match(str)
-    if m.Success
-    then Some (List.tail [ for x in m.Groups -> x.Value ])
-    else None
-
 
   module Types =
     type ScriptsFile = {
@@ -44,10 +32,10 @@ module Parser =
     | MultipleMemberParentTypeCandidatesFound of path: string * memberFqName: string
 
   [<RequireQualifiedAccess>]
-  module Parser =
+  module CompilerHost =
     open Types
 
-    let readScripts<'a> (verbose:bool) (scripts:ScriptsFile): Async<Result<'a,Error>> =
+    let getScriptMember<'a> (verbose:bool) (scripts:ScriptsFile): Async<Result<'a,Error>> =
       let checker = FSharpChecker.Create()
       let compileScripts (nugetResolutions:string seq) =
         async {
