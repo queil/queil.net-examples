@@ -2,8 +2,8 @@
 
 This is an example code for my blog posts:
 
-https://queil.net/2021/05/embedding-fsharp-compiler/
-https://queil.net/2021/06/embedding-fsharp-compiler-nuget-references/
+* https://queil.net/2021/05/embedding-fsharp-compiler/
+* https://queil.net/2021/06/embedding-fsharp-compiler-nuget-references/
 
 ## Limitations
 
