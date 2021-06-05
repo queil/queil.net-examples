@@ -1,6 +1,6 @@
 
-open Example.Parser
-open Example.Parser.Types
+open Example.CompilerHost
+open Example.CompilerHost.Types
 
 [<EntryPoint>]
 let main argv =
@@ -9,11 +9,11 @@ let main argv =
     {
       path = argv.[0]
       memberFqName = "This.Is.A.Namespace.HelloHost.myFunc"
-    } |> Parser.readScripts<string -> Async<unit>> true |> Async.RunSynchronously
+    } |> CompilerHost.getScriptMember<string -> Async<unit>> false |> Async.RunSynchronously
 
   match result with
-  | Ok f -> 
-    f "The host!" |> Async.RunSynchronously
+  | Ok func -> 
+    func "The host!" |> Async.RunSynchronously
     0
   | Error e ->
     match e with
@@ -25,4 +25,4 @@ let main argv =
       printfn "Found properties: "
       foundProperties |> Seq.iter (printfn "%s")
     | e -> printfn "Unhandled error: %A" e
-    -1  
+    -1
