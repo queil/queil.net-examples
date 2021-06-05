@@ -16,7 +16,7 @@ module CompilerHost =
   let (>>=) = bindAsync
 
   module Types =
-    type ScriptsFile = {
+    type ScriptInput = {
       path: string
       memberFqName: string
     }
@@ -35,7 +35,7 @@ module CompilerHost =
   module CompilerHost =
     open Types
 
-    let getScriptMember<'a> (verbose:bool) (scripts:ScriptsFile): Async<Result<'a,Error>> =
+    let getScriptMember<'a> (verbose:bool) (script:ScriptInput): Async<Result<'a,Error>> =
       let checker = FSharpChecker.Create()
       let compileScripts (nugetResolutions:string seq) =
         async {
@@ -44,7 +44,7 @@ module CompilerHost =
           nugetResolutions |> Seq.iter (fun r -> Assembly.LoadFrom r |> ignore)
 
           let compilerArgs = [|
-            "-a"; scripts.path
+            "-a"; script.path
             "--targetprofile:netcore"
             "--target:module"
             yield! refs
@@ -65,8 +65,8 @@ module CompilerHost =
 
       let resolveNugets () =
         async {
-          let source = File.ReadAllText scripts.path |> SourceText.ofString
-          let! projOptions, errors = checker.GetProjectOptionsFromScript(scripts.path, source)
+          let source = File.ReadAllText script.path |> SourceText.ofString
+          let! projOptions, errors = checker.GetProjectOptionsFromScript(script.path, source)
 
           match errors with
           | [] -> 
@@ -88,7 +88,7 @@ module CompilerHost =
 
       let extract (assembly:Assembly): Result<'a,Error> =
       
-        let name = scripts.memberFqName
+        let name = script.memberFqName
         let (fqTypeName, memberName) =
           let splitIndex = name.LastIndexOf(".")
           name.[0..splitIndex - 1], name.[splitIndex + 1..]
@@ -100,16 +100,16 @@ module CompilerHost =
         | [t] ->
           match t.GetProperty(memberName, BindingFlags.Static ||| BindingFlags.Public) with
           | null -> Error (ScriptsPropertyNotFound (
-                            scripts.path, scripts.memberFqName,
+                            script.path, script.memberFqName,
                             t.GetProperties() |> Seq.map (fun p -> p.Name) |> Seq.toList))
           | p ->
             try
               Ok (p.GetValue(null) :?> 'a)
             with
-            | :? System.InvalidCastException -> Error (ScriptsPropertyHasInvalidType (scripts.path, scripts.memberFqName))
+            | :? System.InvalidCastException -> Error (ScriptsPropertyHasInvalidType (script.path, script.memberFqName))
 
-        | [] -> Error (ExpectedMemberParentTypeNotFound (scripts.path, scripts.memberFqName))
-        | _ -> Error (MultipleMemberParentTypeCandidatesFound (scripts.path, scripts.memberFqName))
+        | [] -> Error (ExpectedMemberParentTypeNotFound (script.path, script.memberFqName))
+        | _ -> Error (MultipleMemberParentTypeCandidatesFound (script.path, script.memberFqName))
       
       async {
         return! 
