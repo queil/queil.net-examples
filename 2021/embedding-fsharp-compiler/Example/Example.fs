@@ -49,76 +49,25 @@ module Parser =
 
     let readScripts<'a> (verbose:bool) (scripts:ScriptsFile): Async<Result<'a,Error>> =
       let checker = FSharpChecker.Create()
-      let compileScripts (checkResult:FSharpCheckProjectResults) =
+      let compileScripts (nugetResolutions:string seq) =
         async {
 
-          let nugetResolutions =
-            checkResult.DependencyFiles 
-              |> Seq.choose(
-                function
-                | path when path.EndsWith(".dll") -> Some path
-                | _ -> None)
-              |> Seq.groupBy (id)
-              |> Seq.map( fun  (path,_) -> path)
-          // let refs = 
-          //   checkResult.DependencyFiles 
-          //     |> Seq.choose(
-          //       function
-          //       | path when path.EndsWith(".dll") -> Some path
-          //       | _ -> None)
-          //     |> Seq.groupBy (id)
-          //     |> Seq.map(fun (dllPath,_) -> $"--r:{dllPath}")
-
-          
-          let refs = nugetResolutions |> Seq.map (fun r ->
-            let refName = Path.GetFileNameWithoutExtension(FileInfo(r).Name)
-            $"--reference:{refName}")
-
-          let libPaths = nugetResolutions |> Seq.map (fun r ->
-            let libPath = FileInfo(r).DirectoryName
-            $"--lib:{libPath}")
-
+          let refs = nugetResolutions |> Seq.map(fun (path) -> $"-r:{path}")
           nugetResolutions |> Seq.iter (fun r -> Assembly.LoadFrom r |> ignore)
 
           let compilerArgs = [|
             "-a"; scripts.path
             "--targetprofile:netcore"
             "--target:module"
-            yield! libPaths
             yield! refs
-            sprintf "--reference:%s" (Assembly.GetEntryAssembly().GetName().Name)
+            sprintf "-r:%s" (Assembly.GetEntryAssembly().GetName().Name)
             "--langversion:preview"
           |]
 
-         
-          //let sysDir = System.Runtime.InteropServices.RuntimeEnvironment.GetRuntimeDirectory()
-          
-          // let assemblies = checked2.DependencyFiles//GetReferencedAssemblies() |> Seq.choose (fun x -> x.FileName) |> Seq.toList
-
-          // let compilerArgs = [|
-          //   "-a"; scripts.path
-          //   sprintf "--reference:%s" (Assembly.GetEntryAssembly().GetName().Name)
-          //   "--langversion:preview"
-          //   "--targetprofile:netcore"
-          //   "--target:module"
-          //   yield! (projOptions.OtherOptions 
-          //           |> Seq.choose(
-          //               function
-          //               | "--noframework" -> None
-          //               | x -> Some x
-          //   ))
-          // |]
           if verbose then printfn "Compiler args: %s" (compilerArgs |> String.concat " ")
-
 
           let! errors, _, maybeAssembly =
             checker.CompileToDynamicAssembly(compilerArgs, None)
-            // checker.CompileToDynamicAssembly([parsed.ParseTree.Value], 
-            //   "x" , 
-            //   assemblies,
-            //   None,
-            //   debug=false
-            //   )
           
           return
             match maybeAssembly with
@@ -126,81 +75,28 @@ module Parser =
             | None -> Error (ScriptCompileError (errors |> Seq.map (fun d -> d.ToString())))
         }
 
-      let parse () =
+      let resolveNugets () =
         async {
-          
           let source = File.ReadAllText scripts.path |> SourceText.ofString
-          let flags = //[||] 
-            [|
+          let! projOptions, errors = checker.GetProjectOptionsFromScript(scripts.path, source)
 
-            |]
-          
-          let! projOptions, errors =
-            checker.GetProjectOptionsFromScript(scripts.path, source, otherFlags=flags)
-
-          // let projOptions = {
-          //   projOptions with
-          //     UseScriptResolutionRules = true
-              
-              
-          // }
-
-          let! projResults =
-                checker.ParseAndCheckProject(projOptions)
-
-          return Ok projResults
-          // let! parsed, checkFileResults =
-          //   checker.ParseAndCheckFileInProject(scripts.path, 0, source, projOptions)
-          // return
-          //   match checkFileResults with
-          //   | FSharpCheckFileAnswer.Succeeded(res) -> 
-          //       match parsed with
-          //       | x when x.ParseHadErrors -> Error(ScriptParseError (parsed.Errors |> Seq.map(fun d -> d.ToString())))
-          //       | x ->
-          //         if verbose then printfn "%A" parsed
-          //         Ok (x, res)
-          //   | res -> failwithf "Parsing did not finish... (%A)" res
+          match errors with
+          | [] -> 
+            let! projResults = checker.ParseAndCheckProject(projOptions)
+            return
+              match projResults.HasCriticalErrors with
+              | false -> 
+                projResults.DependencyFiles 
+                  |> Seq.choose(
+                    function
+                    | path when path.EndsWith(".dll") -> Some path
+                    | _ -> None)
+                  |> Seq.groupBy id
+                  |> Seq.map (fun (path, _) -> path)
+                  |> Ok
+              | _ -> Error (ScriptParseError (projResults.Errors |> Seq.map string) )
+          | _ -> return Error (ScriptParseError (errors |> Seq.map string) )
         }
-
-      // let resolveNugets (parsed:ParsedInput) : Async<Result<string seq, Error>> =
-      //   async {
-
-      //     let fileAst =
-      //       match parsed with
-      //       | ParsedInput.ImplFile x -> x
-      //       | ParsedInput.SigFile _ -> failwith "Sig fles not supported"
-
-      //     let (ParsedImplFileInput(_, _, _, _, topLevelDirectives, modules, _)) = fileAst
-      //     let (SynModuleOrNamespace(_, _, _, moduleDeclarations, _, _, _, _)) = modules.[0]
-
-      //     let nugets =
-      //       moduleDeclarations
-      //         |> Seq.choose (
-      //             function
-      //             | SynModuleDecl.HashDirective(ParsedHashDirective("r", _, _) as ``#r``, _) -> Some (``#r``)
-      //             | _ -> None)
-      //         |> Seq.append (topLevelDirectives |> Seq.ofList)
-      //         |> Seq.choose (
-      //           function
-      //           | ParsedHashDirective("r", [body], _) ->
-      //               match body with
-      //               | ParseRegex "(nuget):\s+(.*)" [nuget; pkg] -> Some (nuget, pkg)
-      //               | _ -> failwith "Only NuGet is supported so far"
-      //           | _ -> None)
-      //         |> Seq.toList
-
-      //     let mgr = FSharpDependencyManager(None)
-
-      //     let tfm = "netstandard2.0"
-      //     let rid = "linux-x64"
-      //     let extension = FileInfo(scripts.path).Extension
-      //     let result = mgr.ResolveDependencies(extension, nugets, tfm, rid, 36000)
-      //     let nugetResult = result :?> ResolveDependenciesResult
-      //     return 
-      //       match nugetResult with
-      //       | x when x.Success -> Ok x.Resolutions
-      //       | _ -> Error (NuGetRestoreFailed(nugetResult.StdOut |> String.concat "\n"))
-      //   }
 
       let extract (assembly:Assembly): Result<'a,Error> =
       
@@ -229,8 +125,7 @@ module Parser =
       
       async {
         return! 
-          parse () 
-          //>>= resolveNugets
+          resolveNugets () 
           >>= compileScripts
           >>= (extract >> async.Return)
       }

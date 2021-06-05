@@ -9,7 +9,7 @@ let main argv =
     {
       path = argv.[0]
       memberFqName = "This.Is.A.Namespace.HelloHost.myFunc"
-    } |> Parser.readScripts<string -> Async<unit>> true |> Async.RunSynchronously
+    } |> Parser.readScripts<string -> Async<unit>> false |> Async.RunSynchronously
 
   match result with
   | Ok f -> 
