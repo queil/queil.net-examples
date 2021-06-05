@@ -51,30 +51,40 @@ module Parser =
       let checker = FSharpChecker.Create()
       let compileScripts (checkResult:FSharpCheckProjectResults) =
         async {
-          let refs = 
+
+          let nugetResolutions =
             checkResult.DependencyFiles 
               |> Seq.choose(
                 function
                 | path when path.EndsWith(".dll") -> Some path
                 | _ -> None)
               |> Seq.groupBy (id)
-              |> Seq.map(fun (dllPath,_) -> $"-r:{dllPath}")
+              |> Seq.map( fun  (path,_) -> path)
+          // let refs = 
+          //   checkResult.DependencyFiles 
+          //     |> Seq.choose(
+          //       function
+          //       | path when path.EndsWith(".dll") -> Some path
+          //       | _ -> None)
+          //     |> Seq.groupBy (id)
+          //     |> Seq.map(fun (dllPath,_) -> $"--r:{dllPath}")
 
           
-          // let refs = nugetResolutions |> Seq.map (fun r ->
-          //   let refName = Path.GetFileNameWithoutExtension(FileInfo(r).Name)
-          //   $"--reference:{refName}")
+          let refs = nugetResolutions |> Seq.map (fun r ->
+            let refName = Path.GetFileNameWithoutExtension(FileInfo(r).Name)
+            $"--reference:{refName}")
 
-          // let libPaths = nugetResolutions |> Seq.map (fun r ->
-          //   let libPath = FileInfo(r).DirectoryName
-          //   $"--lib:{libPath}")
+          let libPaths = nugetResolutions |> Seq.map (fun r ->
+            let libPath = FileInfo(r).DirectoryName
+            $"--lib:{libPath}")
 
-          // nugetResolutions |> Seq.iter (fun r -> Assembly.LoadFrom r |> ignore)
+          nugetResolutions |> Seq.iter (fun r -> Assembly.LoadFrom r |> ignore)
 
           let compilerArgs = [|
             "-a"; scripts.path
             "--targetprofile:netcore"
             "--target:module"
+            yield! libPaths
             yield! refs
             sprintf "--reference:%s" (Assembly.GetEntryAssembly().GetName().Name)
             "--langversion:preview"
