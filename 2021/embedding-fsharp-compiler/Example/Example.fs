@@ -96,19 +96,23 @@ module Parser =
             | ParsedInput.ImplFile x -> x
             | ParsedInput.SigFile _ -> failwith "Sig fles not supported"
 
-          let (ParsedImplFileInput(_, _, _, _, _, modules, _)) = fileAst
+          let (ParsedImplFileInput(_, _, _, _, topLevelDirectives, modules, _)) = fileAst
           let (SynModuleOrNamespace(_, _, _, moduleDeclarations, _, _, _, _)) = modules.[0]
 
           let nugets =
             moduleDeclarations
               |> Seq.choose (
                   function
-                  | SynModuleDecl.HashDirective(ParsedHashDirective("r", args, _), _) -> Some (args)
+                  | SynModuleDecl.HashDirective(ParsedHashDirective("r", _, _) as ``#r``, _) -> Some (``#r``)
                   | _ -> None)
-              |> Seq.collect (id)
-              |> Seq.map (fun d ->
-                   let chunks = d.Split(": ")
-                   (chunks.[0], chunks.[1]))
+              |> Seq.append (topLevelDirectives |> Seq.ofList)
+              |> Seq.collect (
+                function
+                | ParsedHashDirective("r", args, _) -> 
+                    args |> Seq.map (fun a -> let chunks = a.Split(": ")
+                                              chunks.[0], chunks.[1])
+                | _ -> failwith "Other directives not supported yet")
+
               |> Seq.toList
 
           let mgr = FSharpDependencyManager(None)
