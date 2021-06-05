@@ -40,8 +40,8 @@ module CompilerHost =
       let compileScripts (nugetResolutions:string seq) =
         async {
 
-          let refs = nugetResolutions |> Seq.map(fun (path) -> $"-r:{path}")
-          nugetResolutions |> Seq.iter (fun r -> Assembly.LoadFrom r |> ignore)
+          let refs = nugetResolutions |> Seq.map (sprintf "-r:%s")
+          nugetResolutions |> Seq.iter (Assembly.LoadFrom >> ignore)
 
           let compilerArgs = [|
             "-a"; script.path
